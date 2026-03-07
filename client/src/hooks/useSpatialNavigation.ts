@@ -61,13 +61,24 @@ export const useSpatialNavigation = ({
   useEffect(() => {
     if (enabled && itemRefs.current[focusedIndex]) {
       const element = itemRefs.current[focusedIndex];
+
+      // Keep scrolling behavior fully under our control.
+      // Calling `element.focus()` can trigger UA-defined scrolling which may
+      // override our `scrollIntoView({ block: "nearest" })` and appear as a
+      // "jump" (often centering the item). Prefer `preventScroll`.
       element?.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
         inline: "nearest",
       });
-      // Update DOM focus to match visual navigation state
-      element?.focus();
+
+      // Update DOM focus to match visual navigation state (without scroll).
+      try {
+        element?.focus({ preventScroll: true });
+      } catch {
+        // Older browsers may not support FocusOptions; avoid forcing a scroll.
+        // The document-level key handler still works even without DOM focus.
+      }
     }
   }, [focusedIndex, enabled]);
 
