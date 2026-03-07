@@ -22,6 +22,7 @@ import TopBar from "./TopBar";
  */
 const GlobalLayout = ({ children }: Props) => {
   const [navPreferences, setNavPreferences] = useState<NavPreference[]>([]);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
 
   useEffect(() => {
     const loadNavPreferences = async () => {
@@ -44,15 +45,28 @@ const GlobalLayout = ({ children }: Props) => {
   useScrollRestoration();
 
   return (
-    <div className="layout-container min-h-screen">
+    <div
+      className="layout-container min-h-screen"
+      style={{
+        // Used by main content margin on lg+; kept as CSS var so mobile stays flush
+        ["--peek-sidebar-offset" as any]: isSidebarExpanded ? "15rem" : "4rem",
+      }}
+    >
       {/* Sidebar navigation - hidden on mobile, visible lg+ */}
-      <Sidebar navPreferences={navPreferences as unknown as Parameters<typeof Sidebar>[0]['navPreferences']} />
+      <Sidebar
+        navPreferences={navPreferences as unknown as Parameters<typeof Sidebar>[0]["navPreferences"]}
+        onExpandedChange={setIsSidebarExpanded}
+      />
 
       {/* Top bar - mobile only (logo, hamburger menu) */}
       <TopBar navPreferences={navPreferences} />
 
       {/* Main content area - full width after sidebar, Plex-style */}
-      <main className="lg:ml-16 xl:ml-60 pt-16 lg:pt-0">{children}</main>
+      <main
+        className="ml-0 lg:ml-[var(--peek-sidebar-offset)] pt-16 lg:pt-0 transition-[margin-left] duration-100"
+      >
+        {children}
+      </main>
     </div>
   );
 };
