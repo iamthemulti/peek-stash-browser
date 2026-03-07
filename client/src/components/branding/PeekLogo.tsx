@@ -24,16 +24,19 @@ export const PeekLogo = ({
       container: "gap-2",
       logoHeight: "h-6", // 24px
       logoWidth: "w-auto",
+      wordmark: "text-xl",
     },
     default: {
       container: "gap-2",
       logoHeight: "h-8", // 32px
       logoWidth: "w-auto",
+      wordmark: "text-3xl",
     },
     large: {
       container: "gap-3",
       logoHeight: "h-12", // 48px
       logoWidth: "w-auto",
+      wordmark: "text-4xl",
     },
   };
 
@@ -48,33 +51,48 @@ export const PeekLogo = ({
 
   const renderLogo = () => {
     if (variant === "text-only") {
-      return (
-        <span
-          className="text-xl font-bold"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Peek
-        </span>
-      );
+      return null;
     }
 
-    if (variant === "icon-only") {
-      return (
-        <img
-          src={getLogoPath()}
-          alt="Peek"
-          className={`${config.logoHeight} ${config.logoWidth} object-contain`}
-        />
-      );
-    }
-
-    // Default: Full logo (no additional text since your logo includes the text)
     return (
       <img
         src={getLogoPath()}
         alt="Peek"
         className={`${config.logoHeight} ${config.logoWidth} object-contain`}
       />
+    );
+  };
+
+  const renderWordmark = () => {
+    if (variant === "icon-only") {
+      return null;
+    }
+
+    if (variant === "text-only") {
+      return (
+        <span
+          className={`${config.wordmark} font-brand`}
+          style={{
+            color: "var(--accent-primary)",
+            fontFamily: "var(--font-brand)",
+          }}
+        >
+          peek
+        </span>
+      );
+    }
+
+    // Default/auto: show wordmark
+    return (
+      <span
+        className={`${config.wordmark} font-brand`}
+        style={{
+          color: "var(--accent-primary)",
+          fontFamily: "var(--font-brand)",
+        }}
+      >
+        peek
+      </span>
     );
   };
 
@@ -85,15 +103,7 @@ export const PeekLogo = ({
       className={`flex items-center ${config.container} hover:opacity-80 transition-opacity duration-200 cursor-pointer`}
     >
       {renderLogo()}
-      <span
-        className="text-3xl font-brand"
-        style={{
-          color: "var(--accent-primary)",
-          fontFamily: "var(--font-brand)",
-        }}
-      >
-        peek
-      </span>
+      {renderWordmark()}
     </a>
   );
 };
