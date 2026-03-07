@@ -52,8 +52,14 @@ export const useHorizontalNavigation = ({
         block: "nearest",
         inline: "nearest",
       });
-      // Update DOM focus to match visual navigation state
-      element?.focus();
+
+      // Update DOM focus to match visual navigation state (without UA scrolling).
+      // Avoid focus-triggered scroll that can override `scrollIntoView`.
+      try {
+        element?.focus({ preventScroll: true });
+      } catch {
+        // Older browsers: FocusOptions not supported.
+      }
     }
   }, [focusedIndex, enabled]);
 

@@ -100,7 +100,12 @@ const SceneGrid = ({
       // Focus the grid container to enable keyboard navigation
       const firstFocusable = gridRef.current.querySelector('[tabindex="0"]') as HTMLElement | null;
       if (firstFocusable) {
-        firstFocusable.focus();
+        // Prevent UA scrolling here; the spatial nav hook will handle smooth scrolling.
+        try {
+          firstFocusable.focus({ preventScroll: true });
+        } catch {
+          firstFocusable.focus();
+        }
       }
     }
   }, [tvGridZoneActive, scenes]);
