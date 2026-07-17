@@ -39,6 +39,7 @@ import { expandStudioIds, expandTagIds } from "../../utils/hierarchyUtils.js";
 import { parseCompositeFilterValues } from "../../utils/sqlFilterBuilders.js";
 import { getEntityInstanceId } from "../../utils/entityInstanceId.js";
 import { coerceEntityRefs } from "@peek/shared-types/instanceAwareId.js";
+import { stashSyncService } from "../../services/StashSyncService.js";
 import { logger } from "../../utils/logger.js";
 import { SeededRandom, parseRandomSort, generateDailySeed } from "../../utils/seededRandom.js";
 import { buildStashEntityUrl } from "../../utils/stashUrl.js";
@@ -1269,6 +1270,19 @@ export const updateScene = async (
 
     if (!updatedScene.sceneUpdate) {
       return res.status(500).json({ error: "Scene update returned null" });
+    }
+
+    // Ensure Peek's local cache stays consistent with Stash after updates.
+    // This is non-blocking for the client response, but we await to keep
+    // behavior predictable (and to surface errors in logs/tests).
+    try {
+      await stashSyncService.syncSingleEntity("scene", id, "update", instanceId);
+    } catch (err) {
+      logger.error("Failed to sync updated scene", {
+        sceneId: id,
+        instanceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // Override with per-user watch history

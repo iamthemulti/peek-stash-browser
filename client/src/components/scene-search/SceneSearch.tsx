@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGridColumns } from "../../hooks/useGridColumns";
@@ -7,10 +7,14 @@ import { useTableColumns } from "../../hooks/useTableColumns";
 import { useWallPlayback } from "../../hooks/useWallPlayback";
 import { useConfig } from "../../contexts/ConfigContext";
 import { getEntityPath } from "../../utils/entityLinks";
-import { type LibrarySearchParams } from "../../api";
+import { apiGet, libraryApi, type LibrarySearchParams } from "../../api";
 import { useSceneList } from "../../api/hooks";
 import { ApiError } from "../../api/client";
 import { queryKeys } from "../../api/queryKeys";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
+import { parseCompositeKey } from "../../utils/compositeKey";
+import { showError, showSuccess } from "../../utils/toast";
+import type { NormalizedScene } from "@peek/shared-types";
 import {
   SceneCard,
   SyncProgressBanner,
@@ -242,6 +246,41 @@ const SceneSearch = ({
   const findScenesData = (data as Record<string, unknown>)?.findScenes as Record<string, unknown> | undefined;
   const currentScenes = (findScenesData?.scenes as Record<string, unknown>[]) || [];
 
+  // TV mode hotkeys settings (loaded once per mount)
+  const [tvModeHotkeys, setTvModeHotkeys] = useState<{
+    sceneTagHotkeys: { alt1: string | null; alt2: string | null; alt3: string | null; alt4: string | null };
+    refreshSceneGridAfterTagToggle: boolean;
+  } | null>(null);
+
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const data = await apiGet<{ settings: { tvModeHotkeys?: any } }>("/user/settings", controller.signal);
+        const thk = data?.settings?.tvModeHotkeys;
+        setTvModeHotkeys({
+          sceneTagHotkeys: {
+            alt1: thk?.sceneTagHotkeys?.alt1 ?? null,
+            alt2: thk?.sceneTagHotkeys?.alt2 ?? null,
+            alt3: thk?.sceneTagHotkeys?.alt3 ?? null,
+            alt4: thk?.sceneTagHotkeys?.alt4 ?? null,
+          },
+          refreshSceneGridAfterTagToggle: thk?.refreshSceneGridAfterTagToggle ?? false,
+        });
+      } catch {
+        // Non-fatal: TV hotkeys just won't work if settings fail to load.
+        setTvModeHotkeys({
+          sceneTagHotkeys: { alt1: null, alt2: null, alt3: null, alt4: null },
+          refreshSceneGridAfterTagToggle: false,
+        });
+      }
+    })();
+
+    return () => controller.abort();
+  }, []);
+
   const totalCount = (findScenesData?.count as number) || 0;
 
   // Track effective perPage from SearchControls state (fixes stale URL param bug)
@@ -263,6 +302,126 @@ const SceneSearch = ({
     totalPages,
     onItemSelect: handleSceneClick,
   });
+
+  const focusedScene = useMemo(() => {
+    const idx = gridNavigation?.focusedIndex ?? 0;
+    return (currentScenes[idx] as unknown as NormalizedScene | undefined) ?? undefined;
+  }, [currentScenes, gridNavigation?.focusedIndex]);
+
+  const hotkeyTag1Id = useMemo(() => {
+    const key = tvModeHotkeys?.sceneTagHotkeys?.alt1;
+    if (!key) return undefined;
+    return parseCompositeKey(key).id;
+  }, [tvModeHotkeys?.sceneTagHotkeys?.alt1]);
+
+  const toggleHotkeyTag = useCallback(
+    async (slot: "alt1" | "alt2" | "alt3" | "alt4") => {
+      if (!focusedScene) return;
+      const composite = tvModeHotkeys?.sceneTagHotkeys?.[slot] ?? null;
+      if (!composite) {
+        return; // no-op when unconfigured
+      }
+      if (inFlightRef.current) {
+        return;
+      }
+
+      const { id: tagId, instanceId } = parseCompositeKey(composite);
+
+      if (instanceId && instanceId !== focusedScene.instanceId) {
+        showError("Hotkey tag is configured for a different instance");
+        return;
+      }
+
+      const currentDirectTagIds = (focusedScene.tags || []).map((t: any) => t.id);
+      const has = currentDirectTagIds.includes(tagId);
+      const nextTagIds = has
+        ? currentDirectTagIds.filter((id: string) => id !== tagId)
+        : [...currentDirectTagIds, tagId];
+
+      // Lock all hotkeys until complete
+      inFlightRef.current = true;
+      try {
+        const updated = await libraryApi.updateScene(focusedScene.id, {
+          tag_ids: nextTagIds,
+        });
+
+        // Patch cached list for instant UI update (including badge)
+        if (queryParams) {
+          const qk = queryKeys.scenes.list(undefined, (queryParams ?? {}) as Record<string, unknown>);
+          queryClient.setQueryData(qk, (old: unknown) => {
+            if (!old || typeof old !== "object") return old;
+            const oldData = old as Record<string, unknown>;
+            const fs = oldData.findScenes as Record<string, unknown> | undefined;
+            if (!fs?.scenes) return old;
+            const scenes = fs.scenes as unknown[];
+            return {
+              ...oldData,
+              findScenes: {
+                ...fs,
+                scenes: scenes.map((s: unknown) => {
+                  const scene = s as NormalizedScene;
+                  if (scene.id !== focusedScene.id) return scene;
+
+                  // Prefer server-returned scene payload when present, but preserve
+                  // instanceId from the existing cached scene. The updateScene
+                  // endpoint may return a partial payload without instanceId.
+                  const serverScene = (updated as any)?.scene as NormalizedScene | undefined;
+                  if (serverScene) {
+                    return {
+                      ...scene,
+                      ...serverScene,
+                      instanceId: scene.instanceId ?? focusedScene.instanceId,
+                    } as NormalizedScene;
+                  }
+
+                  // Fallback: patch tag ids only
+                  const nextTags = (scene.tags || []).filter((t: any) => nextTagIds.includes(t.id));
+                  // If we added a tag we don't have name for, keep id-only ref.
+                  for (const id of nextTagIds) {
+                    if (!nextTags.some((t: any) => t.id === id)) {
+                      nextTags.push({ id, name: "" } as any);
+                    }
+                  }
+                  return { ...scene, tags: nextTags } as NormalizedScene;
+                }),
+              },
+            };
+          });
+        }
+
+        if (tvModeHotkeys?.refreshSceneGridAfterTagToggle) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.scenes.all() });
+        }
+
+        showSuccess(has ? "Tag removed" : "Tag added");
+      } catch (err) {
+        showError((err as Error).message || "Failed to toggle tag");
+      } finally {
+        inFlightRef.current = false;
+      }
+    },
+    [focusedScene, tvModeHotkeys, queryClient, queryParams]
+  );
+
+  // Ctrl+1..Ctrl+4 tag toggles (TV mode grid only)
+  useKeyboardShortcuts(
+    {
+      "ctrl+1": () => toggleHotkeyTag("alt1"),
+      "ctrl+2": () => toggleHotkeyTag("alt2"),
+      "ctrl+3": () => toggleHotkeyTag("alt3"),
+      "ctrl+4": () => toggleHotkeyTag("alt4"),
+    },
+    {
+      enabled: isTVMode && tvNavigation.isZoneActive("grid"),
+      context: "tv-mode-tag-hotkeys",
+      shouldHandle: (event) => {
+        if (event.repeat) return false;
+        if (!focusedScene) return false;
+        if (inFlightRef.current) return false;
+        return true;
+      },
+    }
+  );
 
   if (error) {
     return (
@@ -396,6 +555,7 @@ const SceneSearch = ({
               tvGridZoneActive={isTVMode && tvNavigation.isZoneActive("grid")}
               gridNavigation={gridNavigation}
               gridItemProps={gridItemProps}
+              hotkeyTag1Id={hotkeyTag1Id}
             />
           )
         ) as unknown as React.ReactNode}

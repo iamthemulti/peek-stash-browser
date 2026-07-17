@@ -2,6 +2,19 @@
  * Library API — entity search and lookup endpoints.
  */
 import { apiFetch, apiGet, apiPost } from "./client";
+import type { NormalizedScene } from "@peek/shared-types";
+
+// Local request/response types for library update endpoints.
+// (These are server-defined today; we keep client typing minimal here.)
+export interface UpdateSceneRequest {
+  tag_ids?: string[];
+  [key: string]: unknown;
+}
+
+export interface UpdateSceneResponse {
+  success: true;
+  scene: NormalizedScene;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -51,6 +64,10 @@ export const libraryApi = {
       ? ((result.findScenes as Record<string, unknown>).scenes as unknown[])[0] ?? null
       : null;
   },
+
+  // Updates
+  updateScene: (id: string, data: UpdateSceneRequest): Promise<UpdateSceneResponse> =>
+    apiFetch(`/library/scenes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 
   findPerformerById: async (id: string, instanceId: string | null = null) => {
     const params: LibrarySearchParams = { ids: [id] };

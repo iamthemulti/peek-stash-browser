@@ -29,6 +29,7 @@ model User {
   unitPreference          String? @default("metric") // "metric" or "imperial" for measurement display
   tableColumnDefaults     Json? // Object with keys: scene, performer, studio, tag, group, gallery, image - each containing {visible: string[], order: string[]}
   cardDisplaySettings     Json? // Object with per-entity-type card display toggles: {scene: {showCodeOnCard, showDescriptionOnCard, ...}, performer: {...}, ...}
+  tvModeHotkeys           Json? // TV mode hotkey settings: sceneTagHotkeys + refreshSceneGridAfterTagToggle
   landingPagePreference   Json? @default("{\"pages\":[\"home\"],\"randomize\":false}")
   lightboxDoubleTapAction String? @default("favorite") // "favorite", "o_counter", or "fullscreen" - action on double-tap/double-click in image lightbox
 

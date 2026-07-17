@@ -32,6 +32,15 @@ interface Props {
   enableKeyboard?: boolean;
   showProgress?: boolean;
   /**
+   * TV-mode tag hotkeys: if provided, cards with this tag will show a bottom-left badge.
+   */
+  hotkeyTag1Id?: string;
+  /**
+   * If false, suppresses rendering the hotkey #1 badge even when the tag is present.
+   * Useful for showing it only on the currently keyboard-focused scene.
+   */
+  showHotkeyTag1Badge?: boolean;
+  /**
    * TV-mode: indicates this card is the currently highlighted item via keyboard navigation.
    * Provided by `useGridPageTVNavigation().gridItemProps`.
    */
@@ -103,6 +112,8 @@ const SceneCard = forwardRef<HTMLDivElement, Props>(
       hideRatingControls = false,
       onHideSuccess,
       fromPageTitle,
+      hotkeyTag1Id,
+      showHotkeyTag1Badge = true,
       tvPreviewActive = false,
     },
     ref
@@ -127,6 +138,9 @@ const SceneCard = forwardRef<HTMLDivElement, Props>(
       scene.files?.[0]?.width && scene.files?.[0]?.height
         ? formatResolution(scene.files[0].width, scene.files[0].height)
         : null;
+
+    const showBottomLeftTagIcon =
+      showHotkeyTag1Badge && !!hotkeyTag1Id && (scene.tags || []).some((t) => t.id === hotkeyTag1Id);
 
     // Combine direct tags with server-computed inherited tags
     const allTags = useMemo(() => computeAllTags(scene), [scene]);
@@ -285,6 +299,7 @@ const SceneCard = forwardRef<HTMLDivElement, Props>(
             spriteCount={10}
             duration={duration}
             resolution={resolution}
+            showBottomLeftTagIcon={showBottomLeftTagIcon}
           />
         )}
 

@@ -35,6 +35,7 @@ interface Props {
   tvGridZoneActive?: boolean;
   gridNavigation?: unknown;
   gridItemProps?: ((index: number) => Record<string, unknown>) | null;
+  hotkeyTag1Id?: string;
 }
 
 const SceneGrid = ({
@@ -55,6 +56,7 @@ const SceneGrid = ({
   tvGridZoneActive = false,
   gridNavigation = null, // eslint-disable-line @typescript-eslint/no-unused-vars
   gridItemProps = null,
+  hotkeyTag1Id,
 }: Props) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const columns = useGridColumns("scenes");
@@ -189,6 +191,7 @@ const SceneGrid = ({
               onToggleSelect={handleToggleSelect}
               selectionMode={selectedScenes.length > 0}
               autoplayOnScroll={columns === 1}
+              hotkeyTag1Id={hotkeyTag1Id}
               {...itemProps}
             />
           );

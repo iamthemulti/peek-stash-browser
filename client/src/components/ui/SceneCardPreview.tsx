@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LucideTag } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import {
   fetchAndParseVTT,
@@ -14,6 +15,7 @@ interface Props {
   duration?: string | null;
   resolution?: string | null;
   objectFit?: "contain" | "cover";
+  showBottomLeftTagIcon?: boolean;
   /**
    * External active state to trigger preview playback (e.g., TV-mode keyboard focus/highlight).
    * When provided, it overrides hover-based activation.
@@ -33,6 +35,7 @@ const SceneCardPreview = ({
   duration = null,
   resolution = null,
   objectFit = "contain",
+  showBottomLeftTagIcon = false,
   active,
   disableHover = false,
 }: Props) => {
@@ -412,6 +415,15 @@ const SceneCardPreview = ({
             />
           </div>
         )}
+
+      {/* Tag hotkey #1 badge (bottom-left) */}
+      {showBottomLeftTagIcon && (
+        <div className="absolute bottom-1 left-1 pointer-events-none z-10">
+          <span className="px-2 py-1 bg-black/70 text-white text-xs font-medium rounded inline-flex items-center">
+            <LucideTag className="w-3 h-3" />
+          </span>
+        </div>
+      )}
 
       {/* Overlays: Duration (bottom-right) and Resolution (top-right) - hidden when preview is playing */}
       {!shouldShowAnimation && (

@@ -164,6 +164,12 @@ vi.mock("../../../utils/logger.js", () => ({
   },
 }));
 
+vi.mock("../../../services/StashSyncService.js", () => ({
+  stashSyncService: {
+    syncSingleEntity: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 vi.mock("@peek/shared-types/instanceAwareId.js", () => ({
   coerceEntityRefs: vi
     .fn()
@@ -195,6 +201,7 @@ import {
   hasAnyCriteria,
   countUserCriteria,
 } from "../../../services/RecommendationScoringService.js";
+import { stashSyncService } from "../../../services/StashSyncService.js";
 
 const mockPrisma = vi.mocked(prisma);
 const mockIsSceneStreamable = vi.mocked(isSceneStreamable);
@@ -204,6 +211,7 @@ const mockGetEntityInstanceId = vi.mocked(getEntityInstanceId);
 const mockStashEntityService = vi.mocked(stashEntityService);
 const mockHasAnyCriteria = vi.mocked(hasAnyCriteria);
 const mockCountUserCriteria = vi.mocked(countUserCriteria);
+const mockStashSyncService = vi.mocked(stashSyncService);
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -1408,6 +1416,13 @@ describe("updateScene", () => {
     const body = res._getBody();
     expect(body.success).toBe(true);
     expect(body.scene.title).toBe("Updated Title");
+
+    expect(mockStashSyncService.syncSingleEntity).toHaveBeenCalledWith(
+      "scene",
+      "123",
+      "update",
+      "default"
+    );
   });
 
   it("returns 500 on unexpected error", async () => {

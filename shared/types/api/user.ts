@@ -115,6 +115,17 @@ export interface LandingPagePreference {
 export type CardDisplaySettings = Record<string, unknown> | null;
 
 // =============================================================================
+// TV MODE HOTKEYS
+// =============================================================================
+
+export type TVModeHotkeySlot = "alt1" | "alt2" | "alt3" | "alt4";
+
+export interface TVModeHotkeysSettings {
+  sceneTagHotkeys: Record<TVModeHotkeySlot, string | null>;
+  refreshSceneGridAfterTagToggle: boolean;
+}
+
+// =============================================================================
 // GET USER SETTINGS
 // =============================================================================
 
@@ -135,6 +146,7 @@ export interface GetUserSettingsResponse {
     wallPlayback: string;
     tableColumnDefaults: Record<string, TableColumnsConfig> | null;
     cardDisplaySettings: CardDisplaySettings;
+    tvModeHotkeys: TVModeHotkeysSettings;
     landingPagePreference: LandingPagePreference;
     lightboxDoubleTapAction: string;
   };
@@ -163,6 +175,7 @@ export interface UpdateUserSettingsBody {
   wallPlayback?: string;
   tableColumnDefaults?: Record<string, TableColumnsConfig> | null;
   cardDisplaySettings?: CardDisplaySettings;
+  tvModeHotkeys?: TVModeHotkeysSettings;
   landingPagePreference?: LandingPagePreference | null;
   lightboxDoubleTapAction?: string;
 }
@@ -180,6 +193,7 @@ export interface UpdateUserSettingsResponse {
     wallPlayback: string;
     tableColumnDefaults: Record<string, TableColumnsConfig> | null;
     cardDisplaySettings: CardDisplaySettings;
+    tvModeHotkeys: TVModeHotkeysSettings;
     landingPagePreference: LandingPagePreference;
     lightboxDoubleTapAction: string;
   };

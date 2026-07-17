@@ -4,6 +4,9 @@ import { useUnitPreference } from "../../../contexts/UnitPreferenceContext";
 import { showError, showSuccess } from "../../../utils/toast";
 import CardDisplaySettings from "../CardDisplaySettings";
 import TableColumnSettings from "../TableColumnSettings";
+import SearchableSelect from "../../ui/SearchableSelect";
+import Switch from "../../ui/Switch";
+import type { TVModeHotkeysSettings } from "@peek/shared-types";
 
 const CustomizationTab = () => {
   const [loading, setLoading] = useState(true);
@@ -12,6 +15,11 @@ const CustomizationTab = () => {
   const [wallPlayback, setWallPlayback] = useState("autoplay");
   const [lightboxDoubleTapAction, setLightboxDoubleTapAction] = useState("favorite");
   const [tableColumnDefaults, setTableColumnDefaults] = useState<Record<string, { visible: string[]; order: string[] }>>({});
+
+  const [tvModeHotkeys, setTvModeHotkeys] = useState<TVModeHotkeysSettings>({
+    sceneTagHotkeys: { alt1: null, alt2: null, alt3: null, alt4: null },
+    refreshSceneGridAfterTagToggle: false,
+  });
 
   // Load settings on mount
   useEffect(() => {
@@ -25,6 +33,15 @@ const CustomizationTab = () => {
         setWallPlayback((settings.wallPlayback as string) || "autoplay");
         setLightboxDoubleTapAction((settings.lightboxDoubleTapAction as string) || "favorite");
         setTableColumnDefaults((settings.tableColumnDefaults as Record<string, { visible: string[]; order: string[] }>) || {});
+
+        // TV mode hotkeys (defaulted server-side, but keep safe defaults)
+        const thk = settings.tvModeHotkeys as TVModeHotkeysSettings | undefined;
+        setTvModeHotkeys(
+          thk ?? {
+            sceneTagHotkeys: { alt1: null, alt2: null, alt3: null, alt4: null },
+            refreshSceneGridAfterTagToggle: false,
+          }
+        );
       } catch {
         showError("Failed to load customization settings");
       } finally {
@@ -65,6 +82,16 @@ const CustomizationTab = () => {
       showError(
         (err as Error).message || "Failed to save table column defaults"
       );
+    }
+  };
+
+  const saveTVModeHotkeys = async (next: TVModeHotkeysSettings) => {
+    try {
+      await apiPut("/user/settings", { tvModeHotkeys: next });
+      setTvModeHotkeys(next);
+      showSuccess("TV mode hotkeys saved!");
+    } catch (err) {
+      showError((err as Error).message || "Failed to save TV mode hotkeys");
     }
   };
 
@@ -214,6 +241,72 @@ const CustomizationTab = () => {
               Action performed when double-tapping (mobile) or double-clicking (desktop) an
               image in the lightbox.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* TV Mode Hotkeys */}
+      <div
+        className="p-6 rounded-lg border"
+        style={{
+          backgroundColor: "var(--bg-card)",
+          borderColor: "var(--border-color)",
+        }}
+      >
+        <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+          TV Mode Hotkeys
+        </h3>
+        <div className="space-y-4">
+          {["alt1", "alt2", "alt3", "alt4"].map((slot, idx) => (
+            <div key={slot}>
+              <label
+                className="block text-sm font-medium mb-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Hotkey {idx + 1} (Ctrl+{idx + 1})
+              </label>
+              <SearchableSelect
+                entityType="tags"
+                multi={false}
+                placeholder="Select a tag..."
+                value={(tvModeHotkeys.sceneTagHotkeys as any)[slot] ?? ""}
+                onChange={(value) => {
+                  const v = (value as string) || "";
+                  const next: TVModeHotkeysSettings = {
+                    ...tvModeHotkeys,
+                    sceneTagHotkeys: {
+                      ...tvModeHotkeys.sceneTagHotkeys,
+                      [slot]: v ? v : null,
+                    } as TVModeHotkeysSettings["sceneTagHotkeys"],
+                  };
+                  saveTVModeHotkeys(next);
+                }}
+              />
+              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                Press Ctrl+{idx + 1} in TV mode grid to toggle this tag on the focused scene.
+              </p>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                Refresh scene grid after tag hotkey
+              </div>
+              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                When enabled, refetches the full scene grid after a tag toggle.
+              </p>
+            </div>
+            <Switch
+              checked={tvModeHotkeys.refreshSceneGridAfterTagToggle}
+              onChange={(checked) => {
+                const next: TVModeHotkeysSettings = {
+                  ...tvModeHotkeys,
+                  refreshSceneGridAfterTagToggle: checked,
+                };
+                saveTVModeHotkeys(next);
+              }}
+            />
           </div>
         </div>
       </div>

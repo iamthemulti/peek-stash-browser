@@ -143,6 +143,42 @@ describe("User Controller", () => {
       expect(body.settings.carouselPreferences.length).toBeGreaterThan(0);
     });
 
+    it("defaults tvModeHotkeys when missing/null", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 2,
+        username: "testuser",
+        role: "USER",
+        preferredQuality: null,
+        preferredPlaybackMode: null,
+        preferredPreviewQuality: null,
+        enableCast: true,
+        theme: null,
+        carouselPreferences: null,
+        navPreferences: null,
+        filterPresets: null,
+        minimumPlayPercent: 20,
+        syncToStash: false,
+        hideConfirmationDisabled: false,
+        unitPreference: null,
+        wallPlayback: null,
+        tableColumnDefaults: null,
+        cardDisplaySettings: null,
+        tvModeHotkeys: null,
+        landingPagePreference: null,
+        lightboxDoubleTapAction: null,
+      } as any);
+
+      const req = mockReq({}, {}, USER);
+      const res = mockRes();
+      await getUserSettings(req, res);
+
+      const body = res._getBody();
+      expect(body.settings.tvModeHotkeys).toEqual({
+        sceneTagHotkeys: { alt1: null, alt2: null, alt3: null, alt4: null },
+        refreshSceneGridAfterTagToggle: false,
+      });
+    });
+
     it("returns 500 on database error", async () => {
       mockPrisma.user.findUnique.mockRejectedValue(new Error("DB error"));
       const req = mockReq({}, {}, USER);
@@ -167,6 +203,7 @@ describe("User Controller", () => {
       wallPlayback: null,
       tableColumnDefaults: null,
       cardDisplaySettings: null,
+      tvModeHotkeys: null,
       landingPagePreference: null,
       lightboxDoubleTapAction: null,
     };
@@ -202,6 +239,127 @@ describe("User Controller", () => {
       const res = mockRes();
       await updateUserSettings(req, res);
       expect(res._getBody().success).toBe(true);
+    });
+
+    // ─── tvModeHotkeys validation ───
+
+    it("rejects tvModeHotkeys when not an object", async () => {
+      const req = mockReq({ tvModeHotkeys: "nope" }, {}, USER);
+      const res = mockRes();
+      await updateUserSettings(req as any, res);
+      expect(res._getStatus()).toBe(400);
+      expect(res._getBody().error).toMatch(/TV mode hotkeys must be an object/i);
+    });
+
+    it("rejects tvModeHotkeys when sceneTagHotkeys is not an object", async () => {
+      const req = mockReq(
+        { tvModeHotkeys: { sceneTagHotkeys: "bad", refreshSceneGridAfterTagToggle: false } },
+        {},
+        USER
+      );
+      const res = mockRes();
+      await updateUserSettings(req as any, res);
+      expect(res._getStatus()).toBe(400);
+      expect(res._getBody().error).toMatch(/sceneTagHotkeys/i);
+    });
+
+    it("rejects tvModeHotkeys when unknown slot key is provided", async () => {
+      const req = mockReq(
+        {
+          tvModeHotkeys: {
+            sceneTagHotkeys: { alt5: "t1" },
+            refreshSceneGridAfterTagToggle: false,
+          },
+        },
+        {},
+        USER
+      );
+      const res = mockRes();
+      await updateUserSettings(req as any, res);
+      expect(res._getStatus()).toBe(400);
+      expect(res._getBody().error).toMatch(/Invalid TV mode hotkey slot/i);
+    });
+
+    it("rejects tvModeHotkeys when slot value is not string|null", async () => {
+      const req = mockReq(
+        {
+          tvModeHotkeys: {
+            sceneTagHotkeys: { alt1: 123 },
+            refreshSceneGridAfterTagToggle: false,
+          },
+        },
+        {},
+        USER
+      );
+      const res = mockRes();
+      await updateUserSettings(req as any, res);
+      expect(res._getStatus()).toBe(400);
+      expect(res._getBody().error).toMatch(/must be a string or null/i);
+    });
+
+    it("rejects tvModeHotkeys when slot string format is invalid", async () => {
+      const req = mockReq(
+        {
+          tvModeHotkeys: {
+            sceneTagHotkeys: { alt1: ":" },
+            refreshSceneGridAfterTagToggle: false,
+          },
+        },
+        {},
+        USER
+      );
+      const res = mockRes();
+      await updateUserSettings(req as any, res);
+      expect(res._getStatus()).toBe(400);
+      expect(res._getBody().error).toMatch(/format id or id:instanceId/i);
+    });
+
+    it("rejects tvModeHotkeys when refreshSceneGridAfterTagToggle is not boolean", async () => {
+      const req = mockReq(
+        {
+          tvModeHotkeys: {
+            sceneTagHotkeys: { alt1: null, alt2: null, alt3: null, alt4: null },
+            refreshSceneGridAfterTagToggle: "nope",
+          },
+        },
+        {},
+        USER
+      );
+      const res = mockRes();
+      await updateUserSettings(req as any, res);
+      expect(res._getStatus()).toBe(400);
+      expect(res._getBody().error).toMatch(/refreshSceneGridAfterTagToggle/i);
+    });
+
+    it("accepts tvModeHotkeys with id and id:instanceId values", async () => {
+      mockPrisma.user.update.mockResolvedValue({
+        ...mockUpdatedUser,
+        tvModeHotkeys: {
+          sceneTagHotkeys: { alt1: "t1", alt2: "t2:inst", alt3: null, alt4: null },
+          refreshSceneGridAfterTagToggle: true,
+        },
+      } as any);
+
+      const req = mockReq(
+        {
+          tvModeHotkeys: {
+            sceneTagHotkeys: { alt1: "t1", alt2: "t2:inst", alt3: null, alt4: null },
+            refreshSceneGridAfterTagToggle: true,
+          },
+        },
+        {},
+        USER
+      );
+      const res = mockRes();
+      await updateUserSettings(req as any, res);
+      expect(res._getBody().success).toBe(true);
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tvModeHotkeys: expect.anything(),
+          }),
+        })
+      );
     });
 
     // Validation tests

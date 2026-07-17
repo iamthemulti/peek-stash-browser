@@ -123,6 +123,7 @@ export const getUserSettings = async (
         wallPlayback: true,
         tableColumnDefaults: true,
         cardDisplaySettings: true,
+        tvModeHotkeys: true,
         landingPagePreference: true,
         lightboxDoubleTapAction: true,
       },
@@ -149,6 +150,27 @@ export const getUserSettings = async (
         wallPlayback: user.wallPlayback ?? "autoplay",
         tableColumnDefaults: (user.tableColumnDefaults as Record<string, TableColumnsConfig> | null) ?? null,
         cardDisplaySettings: (user.cardDisplaySettings as Record<string, unknown> | null) ?? null,
+        tvModeHotkeys:
+          (user.tvModeHotkeys as
+            | {
+                sceneTagHotkeys?: { alt1?: string | null; alt2?: string | null; alt3?: string | null; alt4?: string | null };
+                refreshSceneGridAfterTagToggle?: boolean;
+              }
+            | null)
+            ? {
+                sceneTagHotkeys: {
+                  alt1: (user.tvModeHotkeys as any)?.sceneTagHotkeys?.alt1 ?? null,
+                  alt2: (user.tvModeHotkeys as any)?.sceneTagHotkeys?.alt2 ?? null,
+                  alt3: (user.tvModeHotkeys as any)?.sceneTagHotkeys?.alt3 ?? null,
+                  alt4: (user.tvModeHotkeys as any)?.sceneTagHotkeys?.alt4 ?? null,
+                },
+                refreshSceneGridAfterTagToggle:
+                  (user.tvModeHotkeys as any)?.refreshSceneGridAfterTagToggle ?? false,
+              }
+            : {
+                sceneTagHotkeys: { alt1: null, alt2: null, alt3: null, alt4: null },
+                refreshSceneGridAfterTagToggle: false,
+              },
         landingPagePreference: (user.landingPagePreference as LandingPagePreference | null) ?? { pages: ["home"], randomize: false },
         lightboxDoubleTapAction: user.lightboxDoubleTapAction ?? "favorite",
       },
@@ -202,6 +224,7 @@ export const updateUserSettings = async (
       wallPlayback,
       tableColumnDefaults,
       cardDisplaySettings,
+      tvModeHotkeys,
       landingPagePreference,
       lightboxDoubleTapAction,
     } = req.body;
@@ -372,6 +395,47 @@ export const updateUserSettings = async (
       }
     }
 
+    // Validate TV mode hotkeys if provided
+    if (tvModeHotkeys !== undefined) {
+      if (tvModeHotkeys === null || typeof tvModeHotkeys !== "object") {
+        return res.status(400).json({ error: "TV mode hotkeys must be an object" });
+      }
+
+      const thk = tvModeHotkeys as unknown as Record<string, unknown>;
+      const sceneTagHotkeys = (thk.sceneTagHotkeys ?? undefined) as Record<string, unknown> | undefined;
+      const refresh = thk.refreshSceneGridAfterTagToggle;
+
+      if (!sceneTagHotkeys || typeof sceneTagHotkeys !== "object") {
+        return res.status(400).json({ error: "TV mode hotkeys sceneTagHotkeys must be an object" });
+      }
+
+      const allowedKeys = new Set(["alt1", "alt2", "alt3", "alt4"]);
+      for (const key of Object.keys(sceneTagHotkeys)) {
+        if (!allowedKeys.has(key)) {
+          return res.status(400).json({ error: `Invalid TV mode hotkey slot: ${key}` });
+        }
+      }
+
+      for (const [key, value] of Object.entries(sceneTagHotkeys)) {
+        if (value !== null && typeof value !== "string") {
+          return res.status(400).json({ error: `TV mode hotkey ${key} must be a string or null` });
+        }
+        if (typeof value === "string") {
+          // Accept either "id" or "id:instanceId"; disallow empty segments
+          const parts = value.split(":");
+          const a = parts[0] ?? "";
+          const b = parts[1] ?? "";
+          if (parts.length > 2 || a.trim().length === 0 || (parts.length === 2 && b.trim().length === 0)) {
+            return res.status(400).json({ error: `TV mode hotkey ${key} must be in format id or id:instanceId` });
+          }
+        }
+      }
+
+      if (typeof refresh !== "boolean") {
+        return res.status(400).json({ error: "TV mode hotkeys refreshSceneGridAfterTagToggle must be a boolean" });
+      }
+    }
+
     // Validate landing page preference if provided
     if (landingPagePreference !== undefined) {
       if (landingPagePreference !== null && typeof landingPagePreference !== "object") {
@@ -443,6 +507,7 @@ export const updateUserSettings = async (
         ...(wallPlayback !== undefined && { wallPlayback }),
         ...(tableColumnDefaults !== undefined && { tableColumnDefaults: tableColumnDefaults as never }),
         ...(cardDisplaySettings !== undefined && { cardDisplaySettings: cardDisplaySettings as never }),
+        ...(tvModeHotkeys !== undefined && { tvModeHotkeys: tvModeHotkeys as never }),
         ...(landingPagePreference !== undefined && { landingPagePreference: landingPagePreference as never }),
         ...(lightboxDoubleTapAction !== undefined && { lightboxDoubleTapAction }),
       },
@@ -461,6 +526,7 @@ export const updateUserSettings = async (
         wallPlayback: true,
         tableColumnDefaults: true,
         cardDisplaySettings: true,
+        tvModeHotkeys: true,
         landingPagePreference: true,
         lightboxDoubleTapAction: true,
       },
@@ -480,6 +546,27 @@ export const updateUserSettings = async (
         wallPlayback: updatedUser.wallPlayback ?? "autoplay",
         tableColumnDefaults: (updatedUser.tableColumnDefaults as Record<string, TableColumnsConfig> | null) ?? null,
         cardDisplaySettings: (updatedUser.cardDisplaySettings as Record<string, unknown> | null) ?? null,
+        tvModeHotkeys:
+          (updatedUser.tvModeHotkeys as
+            | {
+                sceneTagHotkeys?: { alt1?: string | null; alt2?: string | null; alt3?: string | null; alt4?: string | null };
+                refreshSceneGridAfterTagToggle?: boolean;
+              }
+            | null)
+            ? {
+                sceneTagHotkeys: {
+                  alt1: (updatedUser.tvModeHotkeys as any)?.sceneTagHotkeys?.alt1 ?? null,
+                  alt2: (updatedUser.tvModeHotkeys as any)?.sceneTagHotkeys?.alt2 ?? null,
+                  alt3: (updatedUser.tvModeHotkeys as any)?.sceneTagHotkeys?.alt3 ?? null,
+                  alt4: (updatedUser.tvModeHotkeys as any)?.sceneTagHotkeys?.alt4 ?? null,
+                },
+                refreshSceneGridAfterTagToggle:
+                  (updatedUser.tvModeHotkeys as any)?.refreshSceneGridAfterTagToggle ?? false,
+              }
+            : {
+                sceneTagHotkeys: { alt1: null, alt2: null, alt3: null, alt4: null },
+                refreshSceneGridAfterTagToggle: false,
+              },
         landingPagePreference: (updatedUser.landingPagePreference as LandingPagePreference | null) ?? { pages: ["home"], randomize: false },
         lightboxDoubleTapAction: updatedUser.lightboxDoubleTapAction ?? "favorite",
       },
